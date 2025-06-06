@@ -79,3 +79,7 @@ git add <paths>                         # stage
 git commit -m "msg"                     # commit
 git push -u origin main                 # first push
 
+
+
+### Quick API smoke-test
+python ibkr_connect.py                   # prints TWS server time
