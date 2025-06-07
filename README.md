@@ -79,7 +79,9 @@ git add <paths>                         # stage
 git commit -m "msg"                     # commit
 git push -u origin main                 # first push
 
+# Week 2
 
-
-### Quick API smoke-test
+## Quick API smoke-test
 python ibkr_connect.py                   # prints TWS server time
+
+## Fetched 1-min bars for AAPL, SPY via IBKR API; stored to Parquet.
