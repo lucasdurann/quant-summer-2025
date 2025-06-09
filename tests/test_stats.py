@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import utils as ut
+from utils import calc_spread_slippage
 
 def sample_prices_constant_return(n_days: int = 260, daily_pct: float = 0.01) -> pd.Series:
     """ 
@@ -55,3 +56,11 @@ def test_vol_manual_small_series():
     output_vol = ut.rolling_vol(prices, window=3)
     # Compare elementwise (they should match exactly)
     pd.testing.assert_series_equal(output_vol, expected_std)
+
+DATA = Path("data/raw_ibkr")
+
+def test_spread_positive():
+    bars = pd.read_parquet(DATA / "AAPL_1min.parquet")
+    snaps = pd.read_parquet(DATA / "snapshots.parquet")
+    out = calc_spread_slippage(bars, "AAPL")
+    assert (out['bid_ask_spread'] >= 0).all()

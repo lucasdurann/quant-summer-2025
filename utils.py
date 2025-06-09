@@ -90,3 +90,21 @@ def rolling_sharpe(
     sharpe_ts = roll_mean_excess / roll_std_excess
 
     return sharpe_ts
+
+import pandas as pd
+
+def calc_spread_slippage(bar_df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Compute spread & slippage purely from high/low/close of 1-min bars.
+    """
+    bars = bar_df.copy()
+
+    # Use high - low as a proxy for bid-ask spread
+    bars['bid_ask_spread']     = bars['high'] - bars['low']
+    bars['relative_spread_bps'] = 1e4 * bars['bid_ask_spread'] / bars['close']
+
+    # We don’t have a real mid-quote, so slippage is zero or could be close-mid if you choose
+    bars['slippage'] = 0.0
+
+    return bars[['close','bid_ask_spread','relative_spread_bps','slippage']]
+
