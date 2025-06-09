@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+"""
+ibkr_orders_demo.py
+Submit + cancel a test limit order in the IBKR paper account
+"""
+from ib_insync import *
+from pathlib import Path
+import pandas as pd
+from datetime import datetime
+import json, time
+
+# ---------- setup ----------
+LOG_PATH = Path("docs") / f"order_log_{datetime.now():%Y%m%dT%H%M%S}.json"
+PARQUET_FILE = Path("data/raw_ibkr/AAPL_1min.parquet")
+ib = IB()
+ib.connect('127.0.0.1', 7497, clientId=22)    # new clientId for safety
+
+# ---------- get a reference price ----------
+# read your own parquet snapshot for last close
+if PARQUET_FILE.exists():
+    df = pd.read_parquet(PARQUET_FILE)
+    last_price = df['close'].iloc[-1]          # last price from parquet file
+else: 
+    last_price = 100.00 # fallback price if no parquet file is available
+
+limit_px = round(last_price * 0.90, 2)        # 10 % below market → will not fill
+print(f"Last: {last_price:.2f}  |  Limit price: {limit_px:.2f}")
+
+# ---------- define & place order ----------
+contract = Stock('AAPL', 'SMART', 'USD')  # create contract for AAPL
+order = LimitOrder('BUY', 10, limit_px, tif='DAY')
+trade = ib.placeOrder(contract, order)
+
+log = []                                      # collect status events
+
+def log_status(trade, *args):
+    # unified handler for any event payload
+    st  = trade.orderStatus.status
+    fl  = trade.orderStatus.filled
+    rem = trade.orderStatus.remaining
+    entry = {
+      "time": datetime.utcnow().isoformat(timespec='seconds'),
+      "orderId": trade.order.orderId,
+      "status": st,
+      "filled": fl,
+      "remaining": rem
+    }
+    log.append(entry)
+    print(entry)
+
+trade.filledEvent += log_status               # hook into events
+trade.statusEvent += log_status
+
+# ---------- wait & cancel ----------
+ib.sleep(5)                                   # give IBKR a moment to cycle statuses
+ib.cancelOrder(order)
+ib.sleep(2)                                   # capture Cancelled status
+
+# ---------- persist log ----------
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+LOG_PATH.write_text(json.dumps(log, indent=2))
+print(f"\nOrder log saved → {LOG_PATH.resolve()}")
+
+# ---------- clean exit ----------
+ib.disconnect()
