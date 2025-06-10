@@ -85,3 +85,26 @@ git push -u origin main                 # first push
 python ibkr_connect.py                   # prints TWS server time
 
 ## Fetched 1-min bars for AAPL, SPY via IBKR API; stored to Parquet.
+
+## 📊 Seed Factor Pipeline — Week 2  
+
+A lightweight **3-factor snapshot** to kick-start the MFS (Multi-Factor Strategy) workstream.  
+
+| Detail | Implementation |
+|--------|----------------|
+| **Universe** | 30 large-cap U.S. tickers (see `TICKERS` list in `factor_pipeline.py`). |
+| **Data sources** | *Prices* & *fundamentals* via **yfinance** (auto-adjusted daily closes, .info key stats). |
+| **Factors** | *Value* = inverse Price-to-Sales (TTM)  <br>*Momentum* = 12-month total return  <br>*Quality* = Return-on-Equity (proxy, 1-yr). |
+| **Scoring** | In-sample **z-scores** for each factor → simple average to get **`composite`** rank. |
+| **Output** | CSV written to `data/mfs/factors_snapshot_YYYYMMDD.csv` (dated each run). |
+
+#### How to reproduce
+
+```bash
+# from repo root
+python MFS/factor_pipeline.py
+```
+
+## Demo limit order (AAPL, 10 sh) submitted & cancelled
+
+## Added bid-ask spread & slippage helper in utils.py; unit test passing
