@@ -14,7 +14,7 @@ from scipy import stats
 TICKERS = [
     "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA", "UNH", "JPM", "V",
     "PG", "JNJ", "HD", "MA", "XOM", "CVX", "KO", "PEP", "MCD", "BAC",
-    "CSCO", "IBM", "CRM", "ORCL", "WMT", "COST", "T", "DIS", "NKE", "INTC"
+    "CSCO", "IBM", "CRM", "ORCL", "WMT", "COST", "T", "DIS", "NKE", "SPY"
 ]  # → adjust any time
 
 OUTPUT_DIR = Path("MFS/data")
