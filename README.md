@@ -1,6 +1,6 @@
-# ────────────────────────────────────────────────────────────────
-# Project Road-map & Directory Reference (Week 1 – end of Wed)
-# ────────────────────────────────────────────────────────────────
+Project Road-map & Directory Reference 
+
+# Week 1
 
 ## 1 Current Tree
 
@@ -81,12 +81,12 @@ git push -u origin main                 # first push
 
 # Week 2
 
-## Quick API smoke-test
+## 1 Quick API smoke-test
 python ibkr_connect.py                   # prints TWS server time
 
-## Fetched 1-min bars for AAPL, SPY via IBKR API; stored to Parquet.
+## 2 Fetched 1-min bars for AAPL, SPY via IBKR API; stored to Parquet.
 
-## 📊 Seed Factor Pipeline — Week 2  
+## 3 📊 Seed Factor Pipeline — Week 2  
 
 A lightweight **3-factor snapshot** to kick-start the MFS (Multi-Factor Strategy) workstream.  
 
@@ -105,6 +105,26 @@ A lightweight **3-factor snapshot** to kick-start the MFS (Multi-Factor Strategy
 python MFS/factor_pipeline.py
 ```
 
-## Demo limit order (AAPL, 10 sh) submitted & cancelled
+## 4 Demo limit order (AAPL, 10 sh) submitted & cancelled
 
-## Added bid-ask spread & slippage helper in utils.py; unit test passing
+## 5 Added bid-ask spread & slippage helper in utils.py; unit test passing
+
+## 6 Multi Factor Strategy code in quantconnect
+
+### Algorithm in Finance Terms
+
+Universe filter --> stay in liquid, trade-able names. Keep only U.S. equities trading above $10 and rank them by dollar-volume; keep only top 200
+
+Momentum ranking --> Chase price momentum. Look at the total return over the last 252 trading days for the stocks we had left. Measure "winners keep winning" effect; the higher the return the last 12 months, the higher the score
+
+Value ranking --> Chase stock value. Look at the price to sales ratio; the lower the ratio the better (that is why we invert it in next steps)
+
+Quality ranking --> Chase quality stocks. Take the ROE on each of the stocks; the higher the better
+
+Z-Score --> We z-score each of the factors to get a standardized value so that we can compare each of the variables with each other. Since in the case of value, the lower the better, we invert the method to take the z-score, so that this corresponds.
+
+Composite --> We add up the factors giving the same weight to each of them, we sort them out and we stay with the 10 highest stocks in this composite. 
+
+Investing --> Finally we invest in the 10 stocks giving the same weight to each of them. 
+
+##
