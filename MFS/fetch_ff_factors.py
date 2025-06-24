@@ -46,7 +46,7 @@ def fetch_and_save_ff5(csv_path: Path, start_date: str = "1963-07-01"):
 
     # Convert the integer index (e.g. 196301 → datetime(1963,1,1))
     def int_to_timestamp(imonth):
-        if isinstance(imonth, pd,Period):
+        if isinstance(imonth, pd, Period):
             return imonth.to_timestamp()
         s = str(int(imonth))
         year = int(s[:4])
