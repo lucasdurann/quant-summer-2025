@@ -2,7 +2,8 @@
 import numpy as np
 import pandas as pd
 from typing import Union
-
+from functools import lru_cache
+from arch import arch_model 
 
 TRADING_DAYS = 252        # constant
 
@@ -91,8 +92,6 @@ def rolling_sharpe(
 
     return sharpe_ts
 
-import pandas as pd
-
 def calc_spread_slippage(bar_df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
     Compute spread & slippage purely from high/low/close of 1-min bars.
@@ -108,3 +107,42 @@ def calc_spread_slippage(bar_df: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
     return bars[['close','bid_ask_spread','relative_spread_bps','slippage']]
 
+def _fit_garch(series: pd.Series, p: int, q: int, horizon: int, scale_pct: bool):
+    prices = series.asfreq("B").ffill(limit=1)
+    rets = np.log(prices).diff().dropna()
+    if scale_pct:
+        rets *= 100
+
+    am = arch_model(rets, p=p, q=q, mean="Constant", vol="GARCH", dist="t")
+    res = am.fit(update_freq=0, disp="off")
+
+    var = (
+        res.forecast(start=0, reindex=False, horizon=horizon).variance[f"h.{horizon}"]
+    )
+    sigma = np.sqrt(var).shift(horizon)
+    sigma.name = f"sigma_{horizon}d"
+    sigma.index = sigma.index + pd.tseries.frequencies.to_offset(f"{horizon}B")
+    return sigma
+
+@lru_cache(maxsize=None)
+def _fit_garch_path(path: str, p: int, q: int, horizon: int, scale_pct: bool):
+    series = pd.read_parquet(path).squeeze()
+    return _fit_garch(series, p, q, horizon, scale_pct)
+
+def forecast_vol(
+    series_or_path: Union[pd.Series, str],
+    p: int = 1,
+    q: int = 1,
+    horizon: int = 1,
+    scale_pct: bool = True,
+):
+    """
+    Fit GARCH(p,q); return σ̂ forecast series.
+    Accepts either an in-memory Series or a Parquet-file path.
+    """
+    if isinstance(series_or_path, str):
+        return _fit_garch_path(series_or_path, p, q, horizon, scale_pct)
+    elif isinstance(series_or_path, pd.Series):
+        return _fit_garch(series_or_path, p, q, horizon, scale_pct)
+    else:
+        raise TypeError("Pass a pandas Series or a file-path string.")
