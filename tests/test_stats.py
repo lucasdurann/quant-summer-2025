@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 import utils as ut
 from utils import calc_spread_slippage
+from utils import forecast_vol
 
 def sample_prices_constant_return(n_days: int = 260, daily_pct: float = 0.01) -> pd.Series:
     """ 
@@ -64,3 +65,13 @@ def test_spread_positive():
     snaps = pd.read_parquet(DATA / "snapshots.parquet")
     out = calc_spread_slippage(bars, "AAPL")
     assert (out['bid_ask_spread'] >= 0).all()
+
+def test_vol_shape():
+    s = pd.Series(
+        [10, 10.2, 10.0, 10.5, 10.7],
+        index=pd.date_range("2024-01-02", periods=5, freq="B")
+    )
+    sigma = forecast_vol(s, horizon=1)
+    # one fewer obs after diff, one shift forward → same length minus 1
+    assert len(sigma) == len(s) - 1
+    assert sigma.isna().sum() == 1
