@@ -127,4 +127,29 @@ Composite --> We add up the factors giving the same weight to each of them, we s
 
 Investing --> Finally we invest in the 10 stocks giving the same weight to each of them. 
 
-##
+# Week 3 - 
+
+## Day 2 - GARCH Vol-Forecast & **`vol_cap`** Risk-Parity Hook
+| Deliverable | Path | Purpose |
+|--------------|------|---------|
+| **Notebook** | `notebooks/06_garch_irs.ipynb` | Fits a Student-t **GARCH(1, 1)** to daily log-returns of *IRS* ADR (2015-2025). Generates next-day σ̂ series and saves comparison plot vs. realised 22-day σ. |
+| **Chart** | `proofs/img/garch_irs_sigma.png` | Visual proof of volatility clustering & model fit — used in Week-3 Dev-Log + LinkedIn snippet. |
+| **Helper** | `utils.py` → `forecast_vol()` | Caches GARCH fits & returns σ̂ series for any ticker. Signature:<br>`forecast_vol(series_or_path, p=1, q=1, horizon=1, scale_pct=True)` |
+| **Unit test** | `tests/test_stats.py` | Basic shape & non-null assertions for `forecast_vol()`. |
+| **Factor snapshot** | `MFS/data/factors_snapshot_YYYYMMDD.csv` | Pipeline now appends a **`vol_cap`** column where `vol_cap = 1 / σ̂`. Caps position size inversely to forecast volatility (simple risk-parity). |
+| **Pipeline update** | `MFS/factor_pipeline.py` | Loops through tickers → calls `forecast_vol()` → injects `vol_cap` → exports new snapshot. |
+
+#### Quick Usage
+```python
+from utils import forecast_vol
+import pandas as pd
+
+price_series = pd.read_parquet("data/raw_yfinance/prices_arg.parquet")["IRS"]
+sigma_hat    = forecast_vol(price_series, horizon=1)      # σ̂ 1-day ahead
+vol_cap      = 1 / sigma_hat 
+```
+
+#### Key Takeaways
+- Adaptive risk sizing — positions will now down-weight during high-vol windows and scale up when volatility subsides.
+- Reusable tooling — forecast_vol() is ticker-agnostic; the back-tester and future factor pipelines can call it directly.
+- Performance ready — GARCH fit cached with @lru_cache; unit test green; CI passes.
