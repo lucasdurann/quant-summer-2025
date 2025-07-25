@@ -1,4 +1,4 @@
-#### 2025-06-23  •  FCF schedule (v3)
+#### 2025-06-23  •  FCF schedule (v2)
 
 * Cash tax rate: **25 %** hard-coded (placeholder until we layer NOLs).
 * D&A and CapEx each **2 % of revenue** to model maintenance spend.
@@ -13,3 +13,8 @@
   | 2028 | $4544 th | $4783 th | $5022 th |
 
 * Observation: Model is more sensitive to top-line than margin tweaks; next step is WACC/DCF in Week 5.
+
+#### 2025-07-25  -  Workbook v3
+- Added NOL-aware tax block in FCF-Sched tab (rows 25-30)
+- Added WACC_inputs tab: live beta picker, Argentina CRP (Damodaran Jul-25), dynamic Ke & WACC outputs
+- Added DCF tab: pulls FCF, WACC; PV schedule & TV; outputs EV, equity value, implied share price. 
