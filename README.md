@@ -153,3 +153,6 @@ vol_cap      = 1 / sigma_hat
 - Adaptive risk sizing — positions will now down-weight during high-vol windows and scale up when volatility subsides.
 - Reusable tooling — forecast_vol() is ticker-agnostic; the back-tester and future factor pipelines can call it directly.
 - Performance ready — GARCH fit cached with @lru_cache; unit test green; CI passes.
+
+## Day 7 - QuantConnect code updated with vol_cap
+| v0.2 | 2019‑24 | vol_cap weights | [JSON](/quantconnect/backtests/v0.2.json) |
