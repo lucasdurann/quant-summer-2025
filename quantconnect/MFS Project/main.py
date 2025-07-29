@@ -1,6 +1,13 @@
 from AlgorithmImports import *
 import pandas as pd 
 import numpy as np 
+from collections import defaultdict
+import math
+try:
+    from arch import arch_model        # for GARCH volatility estimation    
+    GARCH_OK = True
+except ImportError:
+    GARCH_OK = False
 
 class TopCompositeFactor(QCAlgorithm):
     
@@ -10,6 +17,8 @@ class TopCompositeFactor(QCAlgorithm):
         self.SetCash(100_000)
         self.num_stocks = 10
         self.selected = []
+        self.vol_window = 260              # ~1y of daily bars
+        self.sigma_cache = {}              # {symbol: (last_bar_time, sigma)}
 
         self.spy = self.AddEquity("SPY").Symbol
 
@@ -75,11 +84,46 @@ class TopCompositeFactor(QCAlgorithm):
         self.selected = df.head(self.num_stocks)["symbol"].tolist()
         return self.selected
 
+    # ---------- step 3: compute volatility ----------
+    def ForecastSigma(self, symbol):
+         """Return next‑day σ forecast in %."""
+         last_time, sig = self.sigma_cache.get(symbol, (None, None))
+       # update only once per month (after rebalance)
+         if last_time is not None and last_time.month == self.Time.month:
+            return sig
+
+         hist = self.History(symbol, self.vol_window, Resolution.Daily)
+         if hist.empty or len(hist.close) < 30:
+           sig = 30       # fallback 30 % if we lack data
+         else:
+           rets = (np.log(hist.close).diff().dropna() * 100)  # % log‑ret
+           if GARCH_OK:
+               am  = arch_model(rets, p=1, q=1, mean='Zero',
+                                vol='GARCH', dist='t')
+               res = am.fit(disp="off")
+               var = res.forecast(horizon=1).variance.iloc[-1, 0]
+               sig = math.sqrt(var)
+           else:
+               sig = rets.rolling(22).std().iloc[-1]           # realised σ
+
+         self.sigma_cache[symbol] = (self.Time, sig)
+         return sig
+
     # ---------- monthly rebalance ----------
     def Rebalance(self):
         weight = 1 / self.num_stocks
+        sigmas = {s: self.ForecastSigma(s) for s in self.selected}
+        avg_sigma = np.mean(list(sigmas.values()))
+
+        raw_w = {s:1 / self.num_stocks * min (avg_sigma / sig, 1)
+                 for s, sig in sigmas.items()}    # vol_cap = avgσ/σ̂
+        # normalise so weights sum ≈ 1 (optional but nice for comparability)
+        total = sum(raw_w.values())
+        weights = {s: w / total for s, w in raw_w.items()}
         for kvp in self.Portfolio:
             if kvp.Value.Invested and kvp.Key not in self.selected:
                 self.Liquidate(kvp.Key)
         for s in self.selected:
             self.SetHoldings(s, weight)
+        for s, w in weights.items():
+            self.SetHoldings(s, float(w))
