@@ -127,3 +127,22 @@ class TopCompositeFactor(QCAlgorithm):
             self.SetHoldings(s, weight)
         for s, w in weights.items():
             self.SetHoldings(s, float(w))
+
+    def OnOrderEvent(self, order_event: OrderEvent):
+        if order_event.Status != OrderStatus.Filled:
+            return
+
+        ticket   = self.Transactions.GetOrderById(order_event.OrderId)
+        fill_val = abs(order_event.FillPrice * order_event.FillQuantity)
+
+        # --- DEBUG LINE (always) ---
+        self.Debug(f"Order {ticket.Id} | {ticket.Symbol} "
+                   f"{ticket.Direction.name} {ticket.Quantity} @ {order_event.FillPrice:.2f} "
+                   f"| ${fill_val:,.0f}")
+
+        # --- EMAIL ALERT (> $1 000) ---
+        if fill_val > 1_000:
+            subject = f"Big Fill ${fill_val:,.0f} – {ticket.Symbol}"
+            body    = f"{self.Time:%Y-%m-%d %H:%M}  {ticket.Direction.name} " \
+                      f"{ticket.Quantity} {ticket.Symbol} @ {order_event.FillPrice:.2f}"
+            self.Notify.Email(subject, body)
