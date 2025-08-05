@@ -156,3 +156,25 @@ vol_cap      = 1 / sigma_hat
 
 ## Day 7 - QuantConnect code updated with vol_cap
 | v0.2 | 2019‑24 | vol_cap weights | [JSON](/quantconnect/backtests/v0.2.json) |
+
+# Week 4 - From Back-test to Live Paper & Valuation Monte-Carlo
+## Day 1 Wednesday - vol_cap QC code update
+- Updated QuantConnect code with vol_cap for volatility consideration and volatility weight using the same metrics as before.
+- Also coded the notifications system and debug for live trade, though for the moment not working since it is a paid function in QC, not paying for now. Tried one time the live option, since the first one is free. We will continue to prepare the code for the eventual live option, but for now not live trading.
+
+## Day 2 Thursday - Guardrails QC code update
+## Week 4 — Guardrails (v03)
+
+**Current config**
+- Dates: 2019-01-01 → 2024-12-31
+- Cap: **13 % of NAV per symbol**
+- Stop: **Trailing**, **15 %**
+- Backtest JSON: `quantconnect/backtests/backtest_v03.json`
+
+### Core Results — Before vs After
+| Run | CAGR | Sharpe | Max-DD | Orders |
+|---|---:|---:|---:|---:|
+| v02 (pre-guardrail) | 12.06% | 0.367 | 62.3% | 979 |
+| **v03 (guardrails)** | **16.04%** | **0.493** | **54.3%** | **607** |
+
+Cap and Stop actual settings are the best from the ones tried (Caps tried: 8%/10%/13% | Stops tried 10%/12%/15% all trailing)

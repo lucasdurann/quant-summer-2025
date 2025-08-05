@@ -8,6 +8,7 @@ try:
     GARCH_OK = True
 except ImportError:
     GARCH_OK = False
+from QuantConnect.Algorithm.Framework.Risk import MaximumDrawdownPercentPerSecurity
 
 class TopCompositeFactor(QCAlgorithm):
     
@@ -19,6 +20,7 @@ class TopCompositeFactor(QCAlgorithm):
         self.selected = []
         self.vol_window = 260              # ~1y of daily bars
         self.sigma_cache = {}              # {symbol: (last_bar_time, sigma)}
+        self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.15)) # 15% max drawdown
 
         self.spy = self.AddEquity("SPY").Symbol
 
@@ -123,10 +125,13 @@ class TopCompositeFactor(QCAlgorithm):
         for kvp in self.Portfolio:
             if kvp.Value.Invested and kvp.Key not in self.selected:
                 self.Liquidate(kvp.Key)
-        for s in self.selected:
-            self.SetHoldings(s, weight)
+        CAP = 0.13  # cap at 13% per stock
+        for s in list(self.Portfolio.Keys):
+            if self.Portfolio[s].Invested and s not in self.selected:
+                    self.Liquidate(s)         
         for s, w in weights.items():
-            self.SetHoldings(s, float(w))
+            w_capped = min(w, CAP)  # cap at 13%
+            self.SetHoldings(s, float(round(w_capped, 4)))
 
     def OnOrderEvent(self, order_event: OrderEvent):
         if order_event.Status != OrderStatus.Filled:
