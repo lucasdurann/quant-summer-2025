@@ -18,3 +18,16 @@
 - Added NOL-aware tax block in FCF-Sched tab (rows 25-30)
 - Added WACC_inputs tab: live beta picker, Argentina CRP (Damodaran Jul-25), dynamic Ke & WACC outputs
 - Added DCF tab: pulls FCF, WACC; PV schedule & TV; outputs EV, equity value, implied share price. 
+
+#### 2025-07-25 - Workbook v4
+Monte-Carlo Valuation (added in **SaaSV_model_v4.xlsx**)
+
+| Item | Details |
+|------|---------|
+| **Sheet** | `Monte-Carlo`  (duplicated v3 → **v4**) |
+| **Stochastic drivers** | • **Customer Growth Rate**: triangular 40 – 60 – 80 %  <br>• **Growth-Decay Factor**: triangular 70 – 75 – 80 %  <br>• **EBIT Margin**: triangular 22 – 27 – 32 %  <br>• **WACC**: 𝑁(26.97 %, 1.5 pp) |
+| **Simulation engine** | Excel **Data ▶ What-If ▶ Data Table**, 1 000 rows (SimID 1-1000) |
+| **Output captured** | Equity Value / share → column `EV_per_share` |
+| **Summary statistics** | P10 **$1.87**  ·  Median **$2.14**  ·  P90 **$2.45**  ·  **74 %** of sims exceed current market price |
+| **Visual** | Histogram saved: `proofs/img/saasv_mc_hist_v1.png` |
+| **Toggle** | Cell `Monte-Carlo!J1` = **ON/OFF** to switch between base and stochastic inputs |
