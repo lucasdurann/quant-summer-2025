@@ -163,8 +163,6 @@ vol_cap      = 1 / sigma_hat
 - Also coded the notifications system and debug for live trade, though for the moment not working since it is a paid function in QC, not paying for now. Tried one time the live option, since the first one is free. We will continue to prepare the code for the eventual live option, but for now not live trading.
 
 ## Day 2 Thursday - Guardrails QC code update
-## Week 4 — Guardrails (v03)
-
 **Current config**
 - Dates: 2019-01-01 → 2024-12-31
 - Cap: **13 % of NAV per symbol**
@@ -178,3 +176,18 @@ vol_cap      = 1 / sigma_hat
 | **v03 (guardrails)** | **16.04%** | **0.493** | **54.3%** | **607** |
 
 Cap and Stop actual settings are the best from the ones tried (Caps tried: 8%/10%/13% | Stops tried 10%/12%/15% all trailing)
+
+## Day 3 Friday - v04 SaaSV model
+### Monte-Carlo Valuation (added in **SaaSV_model_v4.xlsx**)
+
+| Item | Details |
+|------|---------|
+| **Sheet** | `Monte-Carlo`  (duplicated v3 → **v4**) |
+| **Stochastic drivers** | • **Customer Growth Rate**: triangular 40 – 60 – 80 %  <br>• **Growth-Decay Factor**: triangular 70 – 75 – 80 %  <br>• **EBIT Margin**: triangular 22 – 27 – 32 %  <br>• **WACC**: 𝑁(26.97 %, 1.5 pp) |
+| **Simulation engine** | Excel **Data ▶ What-If ▶ Data Table**, 1 000 rows (SimID 1-1000) |
+| **Output captured** | Equity Value / share → column `EV_per_share` |
+| **Summary statistics** | P10 **$1.87**  ·  Median **$2.14**  ·  P90 **$2.45**  ·  **74 %** of sims exceed current market price |
+| **Visual** | Histogram saved: `proofs/img/saasv_mc_hist_v1.png` |
+| **Toggle** | Cell `Monte-Carlo!J1` = **ON/OFF** to switch between base and stochastic inputs |
+
+> *Purpose:* replaces deterministic DCF with probability distribution, enabling risk-aware sizing and exit rules.
