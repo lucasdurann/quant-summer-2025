@@ -1,0 +1,35 @@
+LineItem,"Jan. 31, 2025","Jan. 31, 2024"
+Cash and cash equivalents,2628798.0,1762749.0
+Short-term investments,2008873.0,2083499.0
+"Accounts receivable, net",922805.0,926902.0
+"Deferred commissions, current",97662.0,86096.0
+Prepaid expenses and other current assets,211234.0,180018.0
+Total current assets,5869372.0,5039264.0
+Long-term investments,656476.0,916307.0
+"Property and equipment, net",296393.0,247464.0
+Operating lease right-of-use assets,359439.0,252128.0
+Goodwill,1056559.0,975906.0
+"Intangible assets, net",278028.0,331411.0
+"Deferred commissions, non-current",183967.0,187093.0
+Other assets,333704.0,273810.0
+Total assets,9033938.0,8223383.0
+Accounts payable,169767.0,51721.0
+Accrued expenses and other current liabilities,515454.0,446860.0
+"Operating lease liabilities, current",35923.0,33944.0
+"Deferred revenue, current",2580039.0,2198705.0
+Total current liabilities,3301183.0,2731230.0
+"Convertible senior notes, net",2271529.0,0.0
+"Operating lease liabilities, non-current",377818.0,254037.0
+"Deferred revenue, non-current",15501.0,14402.0
+Other liabilities,61264.0,33120.0
+Total liabilities,6027295.0,3032789.0
+"Preferred stock; $0.0001 par value per share; 200,000 shares authorized, zero shares issued and outstanding as of each January 31, 2025 and 2024",0.0,0.0
+"Common stock; $0.0001 par value per share; 2,500,000 Class A shares authorized; 334,301 and 334,453 shares issued as of January 31, 2025 and 2024, respectively(1); 333,865 and 333,961 shares outstanding as of January 31, 2025 and 2024, respectively(1); 185,461 Class B shares authorized, zero shares issued and outstanding as of each January 31, 2025 and 2024",34.0,34.0
+"Treasury stock, at cost; 436 shares and 492 shares held as of January 31, 2025 and 2024, respectively(1)",-59505.0,-67140.0
+Additional paid-in capital,10355211.0,9331238.0
+Accumulated other comprehensive loss,-2236.0,-8220.0
+Accumulated deficit,-7293575.0,-4075604.0
+Total Snowflake Inc. stockholders’ equity,2999929.0,5180308.0
+Noncontrolling interest,6714.0,10286.0
+Total stockholders’ equity,3006643.0,5190594.0
+Total liabilities and stockholders’ equity,9033938.0,8223383.0
