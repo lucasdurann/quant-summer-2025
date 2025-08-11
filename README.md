@@ -191,3 +191,20 @@ Cap and Stop actual settings are the best from the ones tried (Caps tried: 8%/10
 | **Toggle** | Cell `Monte-Carlo!J1` = **ON/OFF** to switch between base and stochastic inputs |
 
 > *Purpose:* replaces deterministic DCF with probability distribution, enabling risk-aware sizing and exit rules.
+
+### Comp_table_v2 - Added Snapshot of Companies, Target Positioning and Implied Valuation using peer medians
+**Cloud Comps Snapshot (CRM · DDOG · SNOW · NET · MDB)**
+- **EV/Sales (LTM)** distribution: **P25 = 7.66×**, **Median = 16.32×**, **P75 = 17.10×**.
+- **EV/EBITDA (LTM)** is **highly skewed** (several negative EBITDA names): **Median ≈ 20.72×**, tails unreliable (P75 ≈ 184×).
+- Conclusion: **Anchor on EV/Sales** for early/scale SaaS; treat EV/EBITDA as secondary due to sample quality.
+
+**Target Positioning (current)**
+- Inputs: Sales **$4m**, EBITDA **$1m**, Net Debt **$0m**, Shares **10m**, Price **$2.00**.
+- Current **EV ≈ $20m** → **EV/Sales ≈ 4.98×** (well **below** peer median 16.32×).
+- **Percentile vs peers:** EV/EBITDA rank ≈ **48%** (mid-pack); EV/Sales rank is **well below median**.
+
+**Implied Valuation (peer medians)**
+- **Sales anchor:** 16.32× × $4m = **$65m EV** → **$6.54 / share** (no net debt).
+- **EBITDA anchor:** 20.72× × $1m = **$27m EV** → **$2.66 / share**.
+- Takeaway: Fair value range **$2.66–$6.54 / share**; we’ll **cite $6.54** as the primary anchor given comps quality.
+
