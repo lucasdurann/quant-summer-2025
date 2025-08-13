@@ -15,16 +15,21 @@ class TopCompositeFactor(QCAlgorithm):
     
     def Initialize(self):
         self.SetStartDate(2019, 1, 1)
-        self.SetEndDate(2024, 1, 1)
+        self.SetEndDate(2024, 12, 31)
         self.SetCash(100_000)
-        self.num_stocks = 10
+        self.num_stocks = 15
         self.selected = []
         self.vol_window = 260                                           # ~1y of daily bars
         self.sigma_cache = {}                                           # {symbol: (last_bar_time, sigma)}
-        self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.15)) # 15% max drawdown
-        self.min_sector_names = 8                                       # fallback to cross-section z if sector is tiny
-        self.clip_q = 0.02                                              # winsorize at 2%/98% inside sector
+        self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.15)) # 15% max drawdown      
         self.rebalance_count = 0
+
+         # long-short controls
+        self.long_count   = 10     # top N longs
+        self.short_count  = 5      # bottom N shorts
+        self.gross_target = 1.50   # |long| + |short| as % of NAV (e.g., 150%)
+        self.net_target   = 1.00   # long minus short as % of NAV (100% net long)
+
 
         self.spy = self.AddEquity("SPY").Symbol
 
@@ -45,92 +50,54 @@ class TopCompositeFactor(QCAlgorithm):
         top_liquid = sorted(liquid, key=lambda x: x.DollarVolume, reverse=True)[:200]
         return [x.Symbol for x in top_liquid]
 
-    def _sector_code(self, f):
-        """Return an int sector code; fallback -1 if missing."""
-        try:
-            ac = f.AssetClassification
-            code = ac.MorningstarSectorCode
-            if code is not None:
-                return int(code)
-        except Exception:
-            pass
-        # older field fallback (rare)
-        try:
-            return int(f.CompanyReference.IndustryTemplateCode)
-        except Exception:
-            return -1
-
-    def _sector_neutral_z(self, df, col, invert=False):
-        """
-        Sector-neutral z for column `col` with within-sector winsorization.
-        Fallback to global z for small sectors or zero stdev.
-        """
-        x = df[col].astype(float)
-        # precompute global stats for fallback
-        gx = x.clip(x.quantile(self.clip_q), x.quantile(1 - self.clip_q))
-        gmu, gsig = float(gx.mean()), float(gx.std(ddof=0) or 1e-9)
-
-        def per_sector(g):
-            if len(g) < self.min_sector_names:
-                # fallback: global z for this group
-                return (g[col].clip(gx.quantile(self.clip_q), gx.quantile(1 - self.clip_q)) - gmu) / gsig
-            # winsorize within sector
-            lo, hi = g[col].quantile(self.clip_q), g[col].quantile(1 - self.clip_q)
-            xc = g[col].clip(lo, hi)
-            mu = float(xc.mean())
-            sig = float(xc.std(ddof=0) or 1e-9)
-            return (xc - mu) / sig
-
-        z = df.groupby("sector", group_keys=False).apply(per_sector).astype(float)
-        if invert:   # value low = good
-            z = -z
-        return z
-
     # ---------- step 2: compute 12-mo momentum ----------
     def FineSelection(self, fine):
         records = []
         for f in fine:
             # --- Momentum (12-mo total return) ---
-            hist = self.History(f.Symbol, 252, Resolution.Daily)
-            if hist.empty or len(hist.close) < 2:
-                continue
-            mom = float(hist["close"][-1] / hist["close"][0] - 1)
-
+            hist = self.History(f.Symbol, 252, Resolution.Daily)  # 252 days momentum history
+            if hist.empty or len(hist.close) < 2: continue
+            mom = float(hist["close"][-1] / hist["close"][0] - 1) 
+    
             # --- Value (P/S) ---
-            ps_raw = f.ValuationRatios.sales_yield   # already 1/(P/S) in QC
-            if ps_raw is None or ps_raw <= 0:
-                continue
-            ps = float(ps_raw)
+            ps_raw = f.ValuationRatios.sales_yield
+            if ps_raw <= 0 or ps_raw is None: continue     #skip invalid
+            ps = float (ps_raw)
 
             # --- Quality (ROE) ---
             roe_raw = f.OperationRatios.ROE.Value
-            if roe_raw is None:
-                continue
-            roe = float(roe_raw)
+            if roe_raw is None: continue
+            roe = float (roe_raw)
 
             records.append({
                 "symbol": f.Symbol,
-                "sector": self._sector_code(f),
                 "momentum": mom,
                 "value": ps,
                 "quality": roe
             })
+        if len(records) == 0:
+            return self.selected     # fallback to previous set
 
+        # EARLY EXIT if we have no valid records
         if not records:
-            return self.selected  # keep last universe if nothing valid
+            return self.selected  # keep last month’s universe
 
         df = pd.DataFrame(records)
 
-        # === sector-neutral z-scores ===
-        df["z_mom"]  = self._sector_neutral_z(df, "momentum", invert=False)
-        df["z_val"]  = self._sector_neutral_z(df, "value",    invert=True)   # value: low price = good
-        df["z_qual"] = self._sector_neutral_z(df, "quality",  invert=False)
+        # z-scores: momentum / quality high is good, value low is good
+        df["z_mom"] = (df["momentum"] - df["momentum"].mean()) / df["momentum"].std(ddof=0)
+        df["z_val"] = (df["value"].mean() - df["value"]) / df["value"].std(ddof=0)   # inverted
+        df["z_qual"] = (df["quality"] - df["quality"].mean()) / df["quality"].std(ddof=0)
 
-        # composite: equally-weighted
-        df["composite"] = (df["z_mom"] + df["z_val"] + df["z_qual"]) / 3.0
+        df["composite"] = (df["z_mom"] + df["z_val"] + df["z_qual"]) / 3
+        
+        # long the top N, short the bottom N
+        longs  = df.sort_values("composite", ascending=False).head(self.long_count)["symbol"].tolist()
+        shorts = df.sort_values("composite", ascending=True ).head(self.short_count)["symbol"].tolist()
 
-        # pick top N
-        self.selected = df.sort_values("composite", ascending=False).head(self.num_stocks)["symbol"].tolist()
+        self.longs  = longs
+        self.shorts = shorts
+        self.selected = longs + shorts        # universe we actually trade
         return self.selected
 
     # ---------- step 3: compute volatility ----------
@@ -160,22 +127,49 @@ class TopCompositeFactor(QCAlgorithm):
 
     # ---------- monthly rebalance ----------
     def Rebalance(self):
-        weight = 1 / self.num_stocks
-        sigmas = {s: self.ForecastSigma(s) for s in self.selected}
-        avg_sigma = np.mean(list(sigmas.values()))
+        # Liquidate names no longer in selection
+        for kvp in list(self.Portfolio.Values):
+            if kvp.Invested and kvp.Symbol not in set(self.selected):
+                self.Liquidate(kvp.Symbol)
 
-        raw_w = {s:1 / self.num_stocks * min (avg_sigma / sig, 1)
-                 for s, sig in sigmas.items()}    # vol_cap = avgσ/σ̂
-        # normalise so weights sum ≈ 1 (optional but nice for comparability)
-        total = sum(raw_w.values())
-        weights = {s: w / total for s, w in raw_w.items()}
-        for kvp in self.Portfolio:
-            if kvp.Value.Invested and kvp.Key not in self.selected:
-                self.Liquidate(kvp.Key)
-        CAP = 0.13  # cap at 13% per stock
-        for s in list(self.Portfolio.Keys):
-            if self.Portfolio[s].Invested and s not in self.selected:
-                    self.Liquidate(s)         
+        if not getattr(self, "longs", None) and not getattr(self, "shorts", None):
+            return
+
+        # Targets from gross/net
+        L_target = (self.gross_target + self.net_target) / 2.0   # long dollars / NAV
+        S_target = (self.gross_target - self.net_target) / 2.0   # short dollars / NAV (positive number)
+
+        # --- helper to build vol-scaled weights for a list of symbols ---
+        def leg_weights(syms, target_long_fraction):
+            if not syms or target_long_fraction <= 0:
+                return {}
+            sigmas = {s: self.ForecastSigma(s) for s in syms}
+            avg_sig = float(np.mean(list(sigmas.values())))
+            raw = {s: min(avg_sig / max(sig, 1e-9), 1.0) for s, sig in sigmas.items()}
+            total = sum(raw.values())
+            if total <= 0:
+                return {}
+            # scale to target
+            w = {s: target_long_fraction * v / total for s, v in raw.items()}
+            return w
+
+        w_long  = leg_weights(self.longs,  L_target)
+        w_short = leg_weights(self.shorts, S_target)
+        # flip sign for shorts
+        w_short = {s: -v for s, v in w_short.items()}
+
+        # 13% absolute cap per position
+        CAP = 0.13
+        for s in list(w_long.keys()):
+            w_long[s] = min(w_long[s], CAP)
+        for s in list(w_short.keys()):
+            w_short[s] = -min(abs(w_short[s]), CAP)
+
+        # Combine and place orders
+        weights = {}
+        weights.update(w_long)
+        weights.update(w_short)
+
+        # Set target holdings (rounded for cleaner logs)
         for s, w in weights.items():
-            w_capped = min(w, CAP)  # cap at 13%
-            self.SetHoldings(s, float(round(w_capped, 4)))
+            self.SetHoldings(s, float(round(w, 4)))
