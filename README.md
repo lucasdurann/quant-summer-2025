@@ -208,3 +208,17 @@ Cap and Stop actual settings are the best from the ones tried (Caps tried: 8%/10
 - **EBITDA anchor:** 20.72× × $1m = **$27m EV** → **$2.66 / share**.
 - Takeaway: Fair value range **$2.66–$6.54 / share**; we’ll **cite $6.54** as the primary anchor given comps quality.
 
+## Day 4 Saturday - v05 QC Algorithm
+### Tried v04 of QC Algorithm with sector adjustments. Code was not succesful. Changed to long-short strategy without any sector adj. in v05; top 10 long, bottom 5 short
+### Core Results — Before vs After
+| Run | CAGR | Sharpe | Max-DD | Orders |
+|---|---:|---:|---:|---:|
+| v03 guardrails | 16.04% | 0.493 | 54.3% | 607 |
+| v04 sector adjusted | % |  | % |  |
+| **v05 long-short** | **23.81%** | **0.624** | **59.1%** | **1104** |
+
+## **Week 4 outcome**
+- Deferred Task 3 (QC API daily pull) due to paid token; will revisit via Lean CLI.
+- Upgraded strategy to long–short (Top10 / Bottom5) with vol-scaling and per-name cap 13%, trail stop 15%.
+- v05 back-test beats v03 on total return (≈260% vs 110% over 2019–24), with simpler code than sector-neutral v04.
+- Next: walk-forward validation + explicit commission/slippage model.

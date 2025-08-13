@@ -1,3 +1,4 @@
+from operator import invert
 from AlgorithmImports import *
 import pandas as pd 
 import numpy as np 
@@ -18,9 +19,12 @@ class TopCompositeFactor(QCAlgorithm):
         self.SetCash(100_000)
         self.num_stocks = 10
         self.selected = []
-        self.vol_window = 260              # ~1y of daily bars
-        self.sigma_cache = {}              # {symbol: (last_bar_time, sigma)}
+        self.vol_window = 260                                           # ~1y of daily bars
+        self.sigma_cache = {}                                           # {symbol: (last_bar_time, sigma)}
         self.SetRiskManagement(MaximumDrawdownPercentPerSecurity(0.15)) # 15% max drawdown
+        self.min_sector_names = 8                                       # fallback to cross-section z if sector is tiny
+        self.clip_q = 0.02                                              # winsorize at 2%/98% inside sector
+        self.rebalance_count = 0
 
         self.spy = self.AddEquity("SPY").Symbol
 
@@ -41,49 +45,92 @@ class TopCompositeFactor(QCAlgorithm):
         top_liquid = sorted(liquid, key=lambda x: x.DollarVolume, reverse=True)[:200]
         return [x.Symbol for x in top_liquid]
 
+    def _sector_code(self, f):
+        """Return an int sector code; fallback -1 if missing."""
+        try:
+            ac = f.AssetClassification
+            code = ac.MorningstarSectorCode
+            if code is not None:
+                return int(code)
+        except Exception:
+            pass
+        # older field fallback (rare)
+        try:
+            return int(f.CompanyReference.IndustryTemplateCode)
+        except Exception:
+            return -1
+
+    def _sector_neutral_z(self, df, col, invert=False):
+        """
+        Sector-neutral z for column `col` with within-sector winsorization.
+        Fallback to global z for small sectors or zero stdev.
+        """
+        x = df[col].astype(float)
+        # precompute global stats for fallback
+        gx = x.clip(x.quantile(self.clip_q), x.quantile(1 - self.clip_q))
+        gmu, gsig = float(gx.mean()), float(gx.std(ddof=0) or 1e-9)
+
+        def per_sector(g):
+            if len(g) < self.min_sector_names:
+                # fallback: global z for this group
+                return (g[col].clip(gx.quantile(self.clip_q), gx.quantile(1 - self.clip_q)) - gmu) / gsig
+            # winsorize within sector
+            lo, hi = g[col].quantile(self.clip_q), g[col].quantile(1 - self.clip_q)
+            xc = g[col].clip(lo, hi)
+            mu = float(xc.mean())
+            sig = float(xc.std(ddof=0) or 1e-9)
+            return (xc - mu) / sig
+
+        z = df.groupby("sector", group_keys=False).apply(per_sector).astype(float)
+        if invert:   # value low = good
+            z = -z
+        return z
+
     # ---------- step 2: compute 12-mo momentum ----------
     def FineSelection(self, fine):
         records = []
         for f in fine:
             # --- Momentum (12-mo total return) ---
             hist = self.History(f.Symbol, 252, Resolution.Daily)
-            if hist.empty: continue
-            mom = float((hist["close"][-1] / hist["close"][0]) - 1)
-        
+            if hist.empty or len(hist.close) < 2:
+                continue
+            mom = float(hist["close"][-1] / hist["close"][0] - 1)
+
             # --- Value (P/S) ---
-            ps_raw = f.ValuationRatios.sales_yield
-            if ps_raw <= 0 or ps_raw is None: continue     #skip invalid
-            ps = float (ps_raw)
+            ps_raw = f.ValuationRatios.sales_yield   # already 1/(P/S) in QC
+            if ps_raw is None or ps_raw <= 0:
+                continue
+            ps = float(ps_raw)
 
             # --- Quality (ROE) ---
             roe_raw = f.OperationRatios.ROE.Value
-            if roe_raw is None: continue
-            roe = float (roe_raw)
+            if roe_raw is None:
+                continue
+            roe = float(roe_raw)
 
             records.append({
                 "symbol": f.Symbol,
+                "sector": self._sector_code(f),
                 "momentum": mom,
                 "value": ps,
                 "quality": roe
             })
-        if len(records) == 0:
-            return self.selected     # fallback to previous set
 
-        # EARLY EXIT if we have no valid records
         if not records:
-            return self.selected  # keep last month’s universe
+            return self.selected  # keep last universe if nothing valid
 
         df = pd.DataFrame(records)
 
-        # z-scores: momentum / quality high is good, value low is good
-        df["z_mom"] = (df["momentum"] - df["momentum"].mean()) / df["momentum"].std(ddof=0)
-        df["z_val"] = (df["value"].mean() - df["value"]) / df["value"].std(ddof=0)   # inverted
-        df["z_qual"] = (df["quality"] - df["quality"].mean()) / df["quality"].std(ddof=0)
+        # === sector-neutral z-scores ===
+        df["z_mom"]  = self._sector_neutral_z(df, "momentum", invert=False)
+        df["z_val"]  = self._sector_neutral_z(df, "value",    invert=True)   # value: low price = good
+        df["z_qual"] = self._sector_neutral_z(df, "quality",  invert=False)
 
-        df["composite"] = (df["z_mom"] + df["z_val"] + df["z_qual"]) / 3
-        df = df.sort_values("composite", ascending=False)
+        # composite: equally-weighted
+        df["composite"] = (df["z_mom"] + df["z_val"] + df["z_qual"]) / 3.0
 
-        self.selected = df.head(self.num_stocks)["symbol"].tolist()
+        # pick top N
+        self.selected = df.sort_values("composite", ascending=False).head(self.num_stocks)["symbol"].tolist()
         return self.selected
 
     # ---------- step 3: compute volatility ----------
@@ -132,22 +179,3 @@ class TopCompositeFactor(QCAlgorithm):
         for s, w in weights.items():
             w_capped = min(w, CAP)  # cap at 13%
             self.SetHoldings(s, float(round(w_capped, 4)))
-
-    def OnOrderEvent(self, order_event: OrderEvent):
-        if order_event.Status != OrderStatus.Filled:
-            return
-
-        ticket   = self.Transactions.GetOrderById(order_event.OrderId)
-        fill_val = abs(order_event.FillPrice * order_event.FillQuantity)
-
-        # --- DEBUG LINE (always) ---
-        self.Debug(f"Order {ticket.Id} | {ticket.Symbol} "
-                   f"{ticket.Direction.name} {ticket.Quantity} @ {order_event.FillPrice:.2f} "
-                   f"| ${fill_val:,.0f}")
-
-        # --- EMAIL ALERT (> $1 000) ---
-        if fill_val > 1_000:
-            subject = f"Big Fill ${fill_val:,.0f} – {ticket.Symbol}"
-            body    = f"{self.Time:%Y-%m-%d %H:%M}  {ticket.Direction.name} " \
-                      f"{ticket.Quantity} {ticket.Symbol} @ {order_event.FillPrice:.2f}"
-            self.Notify.Email(subject, body)
